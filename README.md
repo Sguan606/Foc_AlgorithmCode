@@ -40,6 +40,6 @@ FOC_MODE_POSITION_LOOP: 位置环+速度环+电流环控制
 
 电流环: 设置foc_control_params.target_current_q和foc_control_params.target_current_d
 
-![image](https://github.com/user-attachments/assets/79c4273a-743d-441f-a351-fb972aeb8f29)     ![image](https://github.com/user-attachments/assets/9bb1257e-4586-4326-a23b-3bb79dfedfc8)
+![image](https://github.com/user-attachments/assets/b075af8b-7cf5-4d9a-93d2-0afcdda24654)     ![image](https://github.com/user-attachments/assets/46287e48-3f0d-4f3b-8463-68bfc616c729)     ![image](https://github.com/user-attachments/assets/9bb1257e-4586-4326-a23b-3bb79dfedfc8)
 
 位置环->速度环->电流环这样的串级控制结构可以使得系统响应更快、更稳定。每个环的PID参数需要根据我们自己实际电机特性进行调整...我自己的也暂时没有细调。目前就是刚好能满足实验需求而已。然后值得说的是，我们需要开启TIM1的任意3通道的PWM输出比较模式，TIM2设置成1ms的定时中断（即中断频率设置为1kHZ）。Then，生成SVPWM的代码和计算PID控制的函数运行对微控制器的主频和FPU要求还挺高的。为了方便运行，我们在实际项目中，主函数就需要考虑少在“while(1)死循环”中放一些长期占用运行时间的东西。
