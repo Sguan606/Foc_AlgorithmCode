@@ -17,7 +17,8 @@ Brushless motors are commonly driven by magnetic directional vector control FOC,
 (I2C) uses the I2C peripherals of the stm32 to communicate with the AS5600 to obtain the angle and angular acceleration of the motor's rotation position at all times... It can be used to realize the position and speed closed loop of 3-phase brushless motors.
 
 (SVPWM) generates a 3-phase PWM wave with adjustable duty cycle through timer TIM1, and then uses TIM2 of stm32 to generate a timing interrupt, and the PWM wave is changed to SVPWM to drive the brushless motor to rotate in the open loop.
-![IMG_3820](https://github.com/user-attachments/assets/e010679e-ef67-426b-9eab-5c5d6c59d4a8)
+![IMG_3824](https://github.com/user-attachments/assets/8143ccb0-e906-4154-9e3a-427c67112574)
+
 
 初次使用，需要在main函数中调用FOC_InitControllers(void)初始化PID控制器，并设置foc_control_params.mode选择控制模式。
 
@@ -38,6 +39,7 @@ FOC_MODE_POSITION_LOOP: 位置环+速度环+电流环控制
 速度环: 设置foc_control_params.target_speed(rad/s)
 
 电流环: 设置foc_control_params.target_current_q和foc_control_params.target_current_d
+
 ![image](https://github.com/user-attachments/assets/79c4273a-743d-441f-a351-fb972aeb8f29)![image](https://github.com/user-attachments/assets/9bb1257e-4586-4326-a23b-3bb79dfedfc8)
 
 位置环->速度环->电流环这样的串级控制结构可以使得系统响应更快、更稳定。每个环的PID参数需要根据我们自己实际电机特性进行调整...我自己的也暂时没有细调。目前就是刚好能满足实验需求而已。然后值得说的是，我们需要开启TIM1的任意3通道的PWM输出比较模式，TIM2设置成1ms的定时中断（即中断频率设置为1kHZ）。Then，生成SVPWM的代码和计算PID控制的函数运行对微控制器的主频和FPU要求还挺高的。为了方便运行，我们在实际项目中，主函数就需要考虑少在“while(1)死循环”中放一些长期占用运行时间的东西。
