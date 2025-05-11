@@ -6,6 +6,7 @@
 #include "svpwm.h"
 #include "as5600.h"
 #include "ina240A2.h"
+#include <math.h>
 
 #define POLE_PAIRS 7                        // 电机极对数（根据电机参数12M14P）
 

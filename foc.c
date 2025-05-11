@@ -2,18 +2,19 @@
  * @Author: 星必尘Sguan
  * @Date: 2025-04-19 19:51:28
  * @LastEditors: 星必尘Sguan|3464647102@qq.com
- * @LastEditTime: 2025-04-22 21:27:33
+ * @LastEditTime: 2025-05-09 19:13:12
  * @FilePath: \test_2804FocMotor\Hardware\foc.c
  * @Description: 实现三相无刷电机的基本速度控制(仅开环);
  * 
  * Copyright (c) 2025 by $JUST, All Rights Reserved. 
  */
 #include "foc.h"
-#include <math.h>
 
 
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
+
+float uaa,ubb,ucc;
 
 
 float target_speed = 0.0f;
@@ -21,7 +22,6 @@ float target_speed = 0.0f;
 float g_mechanical_angle = 0.0f;            // 当前机械角度（弧度）
 #define FocPWM_Period 8500-1                //自己设置的TIM1的频率，控制PWM占空比，这里是0-624
 #define FocPWM_SetCycle 0.001f              //自己设置的TIM2的周期，我这里的调用周期为1ms
-#define FocUmax 0.25f                       //自己设置的合适的d轴最大电压
 
 
 
@@ -54,9 +54,9 @@ float RadToDegrees(float angle_rad) {
 void FOC_Init(void)
 {
     HAL_TIM_Base_Start_IT(&htim2);
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);  // 单独启动每个通道
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);   // 单独启动每个通道
     HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
 }
 
 
@@ -74,35 +74,38 @@ void FOC_GetPhaseVoltages(uint16_t desired_angle, uint32_t* Ua, uint32_t* Ub, ui
  
     #ifdef USE_SPWM
     // 3. SPWM波形的三相电压
-    *Ua = (uint32_t)(4249.5f + 4249.5f * sinf(theta));  // 使用sinf提高计算速度
-    *Ub = (uint32_t)(4249.5f + 4249.5f * sinf(theta + 2.0f * PI / 3.0f));
-    *Uc = (uint32_t)(4249.5f + 4249.5f * sinf(theta + 4.0f * PI / 3.0f));
+    uaa = fast_sin(theta);
+    ubb = fast_sin(theta + 4.0f * PI / 3.0f);
+    ucc = fast_sin(theta + 2.0f * PI / 3.0f);
+    *Ua = (uint32_t)((4249.5f + 4249.5f * uaa)*0.2f);  // 使用sinf提高计算速度
+    *Ub = (uint32_t)((4249.5f + 4249.5f * ubb)*0.2f);
+    *Uc = (uint32_t)((4249.5f + 4249.5f * ucc)*0.2f);
     #endif // 使用到USE_SPWM
  
     
     #ifdef USE_SVPWM
     FOC_HandleTypeDef foc;
-    foc.u_d = FocUmax;      // 设置合适的d轴电压
-    foc.u_q = 0.1f;            // q轴电压设为0
+    foc.u_d = 0.22f;      // 设置合适的d轴电压
+    foc.u_q = 0.15f;            // q轴电压设为0.1f
     foc.theta = theta;
     
     // 执行逆Park变换和SVPWM计算
     ipark(&foc);
     svpwm(&foc);
     
-    // 将SVPWM输出转换为三相电压，并进行缩放和偏移以匹配0-8549范围
-    // 1. 计算三相电压（范围约为-0.5到0.5）
-    float ua = foc.t_a - 0.5f * (foc.t_b + foc.t_c);
-    float ub = foc.t_b - 0.5f * (foc.t_a + foc.t_c);
-    float uc = -(ua + ub);
+    // SVPWM波形还原为纯正弦波
+    // float ua = foc.t_a - 0.5f * (foc.t_b + foc.t_c);
+    // float ub = foc.t_b - 0.5f * (foc.t_a + foc.t_c);
+    // float uc = -(ua + ub);
+    float ua = foc.t_a;
+    float ub = foc.t_b;
+    float uc = foc.t_c;
     
-    // 2. 缩放和偏移到0-8549范围
-    // 先归一化到0-1范围（假设原始范围为-0.5到0.5）
-    ua = (ua + 0.5f);  // 现在范围是0-1
-    ub = (ub + 0.5f);
-    uc = (uc + 0.5f);
+    uaa = ua - 0.5f;
+    ubb = ub - 0.5f;
+    ucc = uc - 0.5f;
     
-    // 3. 缩放到0-8549范围
+    // 缩放到0-8549范围
     *Ua = (uint32_t)(ua * 8449.0f);
     *Ub = (uint32_t)(ub * 8449.0f);
     *Uc = (uint32_t)(uc * 8449.0f);
