@@ -2,9 +2,9 @@
  * @Author: 星必尘Sguan
  * @Date: 2025-04-21 17:02:15
  * @LastEditors: 星必尘Sguan|3464647102@qq.com
- * @LastEditTime: 2025-04-21 18:50:58
+ * @LastEditTime: 2025-05-07 00:40:40
  * @FilePath: \test_2804FocMotor\Hardware\fast_sin.c
- * @Description: 不丢失太多精度去完成"sin的快速运算";
+ * @Description: 不丢失太多精度的"sin的快速运算"函数;
  * 
  * Copyright (c) 2025 by $JUST, All Rights Reserved. 
  */

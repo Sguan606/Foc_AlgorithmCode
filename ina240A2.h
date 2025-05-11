@@ -19,7 +19,7 @@ typedef struct
 
 void INA240_Init(void);
 float INA240_GetValue(void);
-float INA240_GetValue_DMA(ADC_HandleTypeDef *hadc);
+float INA240_GetValue_DMA(ADC_HandleTypeDef *hadc, float shunt_resistor, float gain, float vref);
 void INA240_FocValue(INA240_ValueTypeDef *Channel);
 
 #endif

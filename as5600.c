@@ -2,13 +2,14 @@
  * @Author: 星必尘Sguan
  * @Date: 2025-04-12 19:49:17
  * @LastEditors: 星必尘Sguan|3464647102@qq.com
- * @LastEditTime: 2025-04-20 21:56:42
+ * @LastEditTime: 2025-05-07 00:31:47
  * @FilePath: \test_2804FocMotor\Hardware\as5600.c
  * @Description: AS5600磁编码器
  * 
  * Copyright (c) 2025 by $JUST, All Rights Reserved. 
  */
 #include "as5600.h"
+#include "Kerman.h"
 
 #define M_PI 3.14159265358979323846f
 extern I2C_HandleTypeDef hi2c3;
@@ -17,10 +18,14 @@ extern I2C_HandleTypeDef hi2c3;
 #define AS5600_Reg_H 0x0C
 #define AS5600_Reg_L 0x0D
 
-static float prev_angle = 0.0f;
-static uint32_t prev_time = 0;
 static float prev_velocity = 0.0f;   // 上一次角速度（度/秒）
 static uint32_t prev_time_velocity = 0; // 上一次角速度时间戳（ms）
+
+// 角度相关全局变量
+static uint16_t prev_raw_angle = 0;
+static uint32_t prev_timestamp = 0;
+static float angle_rad_prev = 0;
+
 
 /**
  * @description: 读取AS5600磁编码内部寄存器;
@@ -53,38 +58,6 @@ float AS5600_GetAngle(void) {
 }
 
 
-/**
- * @description: 计算得到角速度;
- * @return {*}
- */
-float AS5600_GetVelocity(void) {
-    uint32_t current_time = HAL_GetTick();
-    float current_angle = AS5600_GetAngle();
-    if (isnan(current_angle)) return NAN;
-
-    if (prev_time == 0) {
-        prev_angle = current_angle;
-        prev_time = current_time;
-        return 0.0f;
-    }
-
-    float delta_angle = current_angle - prev_angle;
-    if (delta_angle > 180.0f) delta_angle -= 360.0f;
-    else if (delta_angle < -180.0f) delta_angle += 360.0f;
-
-    float delta_time = (current_time - prev_time) / 1000.0f;
-    if (delta_time <= 0.01f) return 0.0f;
-
-    prev_angle = current_angle;
-    prev_time = current_time;
-
-    static float filtered_velocity = 0.0f;
-    float alpha = 0.3f;
-    float raw_velocity = delta_angle / delta_time;
-    filtered_velocity = alpha * raw_velocity + (1 - alpha) * filtered_velocity;
-    return filtered_velocity;
-}
-
 
 /**
  * @description: 计算获取角加速度值(***误差微分后被放大，数值滤波后，已经不怎么可见了***);
@@ -92,7 +65,7 @@ float AS5600_GetVelocity(void) {
  */
 float AS5600_GetAcceleration(void) {
     uint32_t current_time = HAL_GetTick();
-    float current_velocity = AS5600_GetVelocity();
+    float current_velocity = AS5600_GetVelocityRad();
     if (isnan(current_velocity)) return NAN;
  
     if (prev_time_velocity == 0) {
@@ -118,28 +91,73 @@ float AS5600_GetAcceleration(void) {
 
 
 /**
- * @description: 角度换算to弧度制角度（0~2π）
+ * @description: 角度换算to弧度制角度（rad）
  * @return {*}
  */
 float AS5600_GetAngleRad(void) {
     return AS5600_GetAngle() * (M_PI / 180.0f);
 }
 
+/**
+ * @description: 角度换算toPI制角度（-Pi到Pi）
+ * @return {*}
+ */
+float AS5600_GetAngleRadNormalized(void) {
+    // 1. 读取原始值（0-4095对应0-360度）
+    uint16_t raw_angle = AS5600_ReadData();
+    if (raw_angle == 0xFFFF) return NAN;  // 处理读取失败
+
+    // 2. 转换为弧度（0~2π）
+    float rad = (raw_angle / 4095.0f) * (2.0f * M_PI);
+
+    // 3. 规范化到[-π, +π]
+    if (rad > M_PI) {
+        rad -= 2.0f * M_PI;  // 大于π时减去2π
+    } else if (rad < -M_PI) {
+        rad += 2.0f * M_PI;  // 小于-π时加上2π
+    }
+    return rad;
+}
+
+
 
 /**
- * @description: 角速度换算to弧度制角速度（Rad/s）
- * @return {*}
+ * @brief 计算角速度（rad/s）
+ * @return 角速度（rad/s），若读取失败返回0
  */
 float AS5600_GetVelocityRad(void) {
-    return AS5600_GetVelocity() * (M_PI / 180.0f);
+    
+    // 1. 读取当前角度（0-4095对应0-2π）
+    uint16_t current_raw = AS5600_ReadData();
+    if (current_raw == 0xFFFF) return 0.0f; // 读取失败
+    
+    // 2. 获取当前时间戳（毫秒）
+    uint32_t current_timestamp = HAL_GetTick();
+    
+    // 3. 计算时间差（秒）
+    float delta_t = (current_timestamp - prev_timestamp) / 1000.0f;
+    if (delta_t <= 0) return 0.0f; // 避免除零
+    
+    // 4. 转换为弧度（0-4095 → 0-2π）
+    const float rad_per_count = 2.0f * 3.1415926f / 4096.0f;
+    float angle_rad_current = current_raw * rad_per_count;
+    
+    // 5. 处理角度跨越0点的边界条件
+    float delta_angle = angle_rad_current - angle_rad_prev;
+    if (delta_angle > 3.1415926f) delta_angle -= 2.0f * 3.1415926f;  // 正向跨越0点
+    if (delta_angle < -3.1415926f) delta_angle += 2.0f * 3.1415926f; // 反向跨越0点
+    
+    // 6. 计算角速度（rad/s）
+    float angular_velocity = delta_angle / delta_t;
+    
+    // 7. 更新历史数据
+    prev_raw_angle = current_raw;
+    prev_timestamp = current_timestamp;
+    angle_rad_prev = angle_rad_current;
+    
+    // 使用卡尔曼滤波平滑数据
+    float filtered_velocity = Kalman_Update(&kf, angular_velocity);
+    return filtered_velocity;
 }
 
-
-/**
- * @description: 角速度换算to转速（转/分钟）
- * @return {*}
- */
-float AS5600_GetRPM(void) {
-    return AS5600_GetVelocity() / 6.0f;
-}
 
