@@ -10,7 +10,7 @@ Brushless motors are commonly driven by magnetic directional vector control FOC,
 
 (I2C)使用stm32的I2C外设与AS5600通信，时刻获取电机旋转位置的角度和角加速度...可用于实现3相无刷电机的位置闭环和速度闭环。
 
-(SVPWM)通过定时器TIM1产生3相可调占空比的PWM波，再使用stm32的TIM2产生定时中断，更迭PWM波至SVPWM驱动无刷电机开环转动。
+(SVPWM)通过定时器TIM1产生3相可调占空比的PWM波，再使用stm32的TIM2产生定时中断，更迭PWM波至SVPWM波形的电流驱动无刷电机开环转动。
 
 (ADC) samples the analog voltage ADC output by the INA240 current detection module to obtain the phase current. Two channels were sampled, and the third channel was calculated by Kirchhoff's current law... Then the data can be simply filtered and used for closed-loop current control of the motor.
 
