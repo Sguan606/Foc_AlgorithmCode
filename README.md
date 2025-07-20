@@ -1,4 +1,7 @@
 # Foc_AlgorithmCode
+
+无刷电机常用磁定向矢量控制foc驱动，由可控PWM波产生三相120度相位角的电流，三个相可合成二维平面任意角度的磁矢量，用于控制电机。因此无刷电机可以用于平滑转动，或者指定位置转动，或者模拟物理旋钮、物理弹簧、力反馈旋钮。
+
 Brushless motors are commonly driven by magnetic directional vector control FOC, which generates a three-phase 120-degree phase angle current by controllable PWM waves, and the three phases can be synthesized into a two-dimensional plane magnetic vector at any angle for controlling the motor. Therefore, brushless motors can be used for smooth rotation, or rotation in a specified position, or to simulate physical knobs, physical springs, and force feedback knobs.
 
 本项目用到的硬件资源有：2804三相无刷电机，AS5600磁编码器，INA240A2的50倍运放电流检测模块x2，Drv8313的三相电机驱动板，12v电源供电，一块Stm32G431cbt6。我使用到了STM32微控制器的外设如下：
