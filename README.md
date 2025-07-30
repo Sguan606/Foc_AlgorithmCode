@@ -44,3 +44,25 @@ FOC_MODE_POSITION_LOOP: 位置环+速度环+电流环控制
 ![image](https://github.com/user-attachments/assets/77474258-2ac3-4ed0-a974-8d6c3de0877f)        ![image](https://github.com/user-attachments/assets/46287e48-3f0d-4f3b-8463-68bfc616c729)        ![image](https://github.com/user-attachments/assets/9bb1257e-4586-4326-a23b-3bb79dfedfc8)
 
 位置环->速度环->电流环这样的串级控制结构可以使得系统响应更快、更稳定。每个环的PID参数需要根据我们自己实际电机特性进行调整...我自己的也暂时没有细调。目前就是刚好能满足实验需求而已。然后值得说的是，我们需要开启TIM1的任意3通道的PWM输出比较模式，TIM2设置成1ms的定时中断（即中断频率设置为1kHZ）。Then，生成SVPWM的代码和计算PID控制的函数运行对微控制器的主频和FPU要求还挺高的。为了方便运行，我们在实际项目中，主函数就需要考虑少在“while(1)死循环”中放一些长期占用运行时间的东西。
+
+
+初次使用，需要在main函数中调用FOC_InitControllers(void)初始化PID控制器，并设置foc_control_params.mode选择控制模式。
+
+控制模式：
+
+FOC_MODE_OPEN_LOOP: 开环速度控制
+
+FOC_MODE_CURRENT_LOOP: 仅电流环控制
+
+FOC_MODE_SPEED_LOOP: 速度环+电流环控制
+
+FOC_MODE_POSITION_LOOP: 位置环+速度环+电流环控制
+
+后期我们为了适应不同规格的无刷电机，可以通过修改PID控制器的Kp、Ki、Kd参数来调整控制性能，设置output_limit参数限制PID输出范围。
+
+位置环: 设置foc_control_params.target_position(rad)
+
+速度环: 设置foc_control_params.target_speed(rad/s)
+
+电流环: 设置foc_control_params.target_current_q和foc_control_params.target_current_d
+
